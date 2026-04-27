@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MedMonitor Pro</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<style>
+body { background:#0f172a; color:white; font-family: Arial; }
+.glass { background:rgba(255,255,255,0.05); padding:20px; border-radius:15px; }
+</style>
+</head>
+
+<body class="p-10">
+
+<h1 class="text-3xl mb-6 font-bold text-cyan-400">MedMonitor</h1>
+
+<!-- ADD MED -->
+<div class="glass mb-6">
+    <h2 class="text-xl mb-4">Add Medicine</h2>
+
+    <input id="med-name" placeholder="Medicine Name" class="p-2 text-black mr-2">
+    <input id="med-time" type="time" class="p-2 text-black mr-2">
+    <input id="med-duration" type="number" placeholder="Days" class="p-2 text-black mr-2">
+
+    <button onclick="addMed()" class="bg-cyan-500 px-4 py-2 rounded">Add</button>
+</div>
+
+<!-- LIST -->
+<div class="glass">
+    <h2 class="text-xl mb-4">Medicines</h2>
+    <div id="med-list"></div>
+</div>
+
+<script>
+const API = "http://localhost:5000";
+
+// ✅ LOAD DATA
+async function loadMeds() {
+    const res = await fetch(API + "/get-meds");
+    const data = await res.json();
+
+    const container = document.getElementById("med-list");
+
+    if (data.length === 0) {
+        container.innerHTML = "No data found";
+        return;
+    }
+
+    container.innerHTML = data.map(m => `
+        <div class="flex justify-between bg-slate-800 p-3 rounded mb-2">
+            <div>
+                <p><b>${m.name}</b></p>
+                <p>${m.time} | ${m.duration} days</p>
+            </div>
+            <button onclick="deleteMed('${m._id}')" class="text-red-400">
+                Delete
+            </button>
+        </div>
+    `).join("");
+}
+
+// ✅ ADD
+async function addMed() {
+    const name = document.getElementById("med-name").value;
+    const time = document.getElementById("med-time").value;
+    const duration = document.getElementById("med-duration").value;
+
+    if (!name || !time || !duration) {
+        alert("Fill all fields");
+        return;
+    }
+
+    await fetch(API + "/add-med", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, time, duration })
+    });
+
+    document.getElementById("med-name").value = "";
+    document.getElementById("med-duration").value = "";
+
+    loadMeds();
+}
+
+// ✅ DELETE
+async function deleteMed(id) {
+    await fetch(API + "/delete-med/" + id, {
+        method: "DELETE"
+    });
+
+    loadMeds();
+}
+
+// ✅ LOAD ON START
+window.onload = loadMeds;
+</script>
+
+</body>
+</html>
