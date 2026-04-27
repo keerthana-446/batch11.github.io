@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedMonitor Pro | Ultimate Health-Care Interface</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #050810; 
+            color: white; 
+            overflow: hidden; 
+        }
+
+        /* --- VIBRANT ANIMATED BACKGROUND --- */
+        .bg-animation {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            background: linear-gradient(125deg, #050810, #0f172a, #050810);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* --- MULTI-COLOR FLOATING ICONS --- */
+        .med-particle {
+            position: absolute;
+            animation: floatUp linear infinite;
+            pointer-events: none;
+            filter: drop-shadow(0 0 12px currentColor);
+            opacity: 0.6;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(110vh) translateX(0) rotate(0deg); opacity: 0; }
+            20% { opacity: 0.7; }
+            80% { opacity: 0.7; }
+            100% { transform: translateY(-15vh) translateX(30px) rotate(360deg); opacity: 0; }
+        }
+
+        /* --- GLASSMORPHISM & NEON UI --- */
+        .glass { 
+            background: rgba(15, 23, 42, 0.7); 
+            backdrop-filter: blur(25px); 
+            border: 1px solid rgba(255,255,255,0.1); 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+        }
+        .neon-border-cyan { border-bottom: 4px solid #00d2ff; }
+        .neon-border-pink { border-bottom: 4px solid #ff007f; }
+        .neon-border-emerald { border-bottom: 4px solid #10b981; }
+
+        /* --- ANIMATIONS --- */
+        .animate-up { animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .pulse-glow { animation: pulse-glow 2s infinite; }
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 0 0 rgba(0, 210, 255, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(0, 210, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 210, 255, 0); }
+        }
+
+        /* --- CUSTOM SCROLLBAR FOR LOGS --- */
+        .history-scroll { max-height: 380px; overflow-y: auto; scrollbar-width: none; }
+        .history-scroll::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="bg-animation" id="particle-container"></div>
+
+    <div id="alarm-overlay" class="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-3xl flex flex-col items-center justify-center hidden p-6">
+        <div class="glass p-16 rounded-[4rem] border-cyan-500/50 text-center max-w-2xl relative overflow-hidden pulse-glow">
+            <i class="fas fa-clock text-cyan-400 text-8xl mb-8 animate-bounce"></i>
+            <h2 class="text-6xl font-black mb-2 tracking-tighter uppercase">Dosage Alert</h2>
+            <p id="alarm-med-display" class="text-4xl mb-4 font-mono text-cyan-400 font-bold uppercase italic">MEDICINE NAME</p>
+            <p id="alarm-day-display" class="text-sm text-slate-500 uppercase tracking-widest mb-12 font-black">COURSE PROGRESS: DAY 1 OF 7</p>
+            
+            <div class="flex gap-6 justify-center">
+                <button onclick="recordAction('Taken')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-12 py-6 rounded-full font-black text-xl transition-all uppercase active:scale-95 shadow-xl shadow-emerald-900/40">
+                    Administered
+                </button>
+                <button onclick="recordAction('Missed')" class="bg-red-600 hover:bg-red-500 text-white px-12 py-6 rounded-full font-black text-xl transition-all uppercase active:scale-95 shadow-xl shadow-red-900/40">
+                    Missed Dose
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center p-6">
+        <div class="glass w-full max-w-md p-12 rounded-[3.5rem] animate-up pulse-glow">
+            <div class="relative mx-auto w-20 h-20 mb-8">
+                <div class="absolute inset-0 bg-cyan-500 blur-2xl opacity-40 animate-pulse"></div>
+                <div class="relative bg-gradient-to-br from-cyan-500 to-blue-700 w-20 h-20 rounded-[1.5rem] flex items-center justify-center shadow-2xl">
+                    <i class="fas fa-hand-holding-medical text-3xl text-white"></i>
+                </div>
+            </div>
+            
+            <h2 class="text-4xl font-black text-center mb-2 tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400 uppercase">Health-<span class="text-cyan-400">Care</span></h2>
+            <p class="text-cyan-400/60 text-center mb-10 text-[10px] font-black uppercase tracking-[0.4em]">Biometric Access Required</p>
+            
+            <div class="space-y-4">
+                <input id="login-name" type="text" placeholder="Patient Full Name" class="w-full bg-slate-900/50 border border-slate-800 p-5 rounded-2xl outline-none focus:border-cyan-500 text-white font-semibold transition-all">
+                <div class="flex gap-4">
+                    <input id="login-age" type="number" placeholder="Age" class="w-1/2 bg-slate-900/50 border border-slate-800 p-5 rounded-2xl outline-none focus:border-cyan-500 text-white">
+                    <select id="login-gender" class="w-1/2 bg-slate-900/50 border border-slate-800 p-5 rounded-2xl outline-none focus:border-cyan-500 text-slate-400 appearance-none cursor-pointer">
+                        <option value="">Gender</option><option>Male</option><option>Female</option>
+                    </select>
+                </div>
+                <button onclick="handleLogin()" class="w-full bg-gradient-to-r from-cyan-600 to-blue-600 py-6 rounded-2xl font-black text-xl hover:shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all mt-4 uppercase tracking-widest">
+                    LOGIN
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-app" class="flex h-screen w-full hidden">
+        <aside class="w-80 bg-slate-950/80 border-r border-slate-800 p-10 flex flex-col glass">
+            <div class="flex items-center gap-4 mb-16">
+                <div class="bg-cyan-500/20 p-3 rounded-xl text-cyan-400"><i class="fas fa-microscope"></i></div>
+                <h1 class="text-xl font-black tracking-tighter text-slate-200 uppercase italic">Med<span class="text-cyan-400">Monitor</span></h1>
+            </div>
+
+            <nav class="space-y-4 flex-1">
+                <button onclick="showSection('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center gap-4 p-5 rounded-[2rem] bg-cyan-600/20 text-cyan-400 border border-cyan-500/20">
+                    <i class="fas fa-th-large"></i><span class="font-bold">Overview</span>
+                </button>
+                <button onclick="showSection('reminders')" id="nav-reminders" class="nav-btn w-full flex items-center gap-4 p-5 rounded-[2rem] text-slate-500 hover:bg-slate-900 transition-all">
+                    <i class="fas fa-prescription"></i><span class="font-semibold">Prescriptions</span>
+                </button>
+            </nav>
+
+            <div class="p-6 bg-slate-900/80 rounded-[2.5rem] border-l-4 border-cyan-500">
+                <p id="p-name" class="font-black text-sm uppercase text-slate-200">Patient</p>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <p id="p-meta" class="text-[10px] text-slate-500 font-bold tracking-widest">ACTIVE MONITORING</p>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 p-14 overflow-y-auto">
+            <header class="flex justify-between items-center mb-12">
+                <div class="animate-up">
+                    <h2 class="text-6xl font-black tracking-tighter mb-2 italic">WELCOME, <span id="welcome-name" class="text-cyan-400">USER</span></h2>
+                    <p class="text-slate-500 font-bold uppercase tracking-[0.3em] text-xs">Biometric Adherence Systems Active</p>
+                </div>
+                <div class="glass p-6 rounded-3xl border-slate-700 text-right">
+                    <p id="clock" class="text-3xl font-mono text-cyan-400 font-bold">00:00:00</p>
+                    <p class="text-[10px] text-slate-500 uppercase font-black tracking-widest">Temporal Sync</p>
+                </div>
+            </header>
+
+            <div id="dashboard-section" class="space-y-12">
+                <div class="grid grid-cols-3 gap-8">
+                    <div class="glass p-12 rounded-[3.5rem] neon-border-cyan relative overflow-hidden">
+                        <p class="text-slate-500 font-black text-xs uppercase tracking-widest mb-4">Adherence Rate</p>
+                        <h3 id="compliance-rate" class="text-7xl font-black text-white">100<span class="text-cyan-500 text-3xl">%</span></h3>
+                    </div>
+                    <div class="glass p-12 rounded-[3.5rem] neon-border-pink">
+                        <p class="text-slate-500 font-black text-xs uppercase tracking-widest mb-4">Active Courses</p>
+                        <h3 id="dash-count" class="text-7xl font-black text-pink-500">0</h3>
+                    </div>
+                    <div class="glass p-12 rounded-[3.5rem] neon-border-emerald">
+                        <p class="text-slate-500 font-black text-xs uppercase tracking-widest mb-4">Remaining Days</p>
+                        <h3 id="days-left-summary" class="text-5xl font-black text-emerald-400 uppercase italic">--</h3>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-8">
+                    <div class="glass p-10 rounded-[3rem]">
+                        <h4 class="text-xl font-black mb-6 uppercase text-cyan-400 italic">Weekly Compliance Graph</h4>
+                        <canvas id="mainChart" height="200"></canvas>
+                    </div>
+                    <div class="glass p-10 rounded-[3rem]">
+                        <h4 class="text-xl font-black mb-6 uppercase text-cyan-400 italic">Clinical Activity Logs</h4>
+                        <div id="recent-logs" class="space-y-4 history-scroll">
+                            <p class="text-slate-500 italic text-sm">No medication history recorded yet.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="reminders-section" class="hidden space-y-10">
+                <div class="grid grid-cols-2 gap-10">
+                    <div class="glass p-12 rounded-[4rem] border-cyan-500/20">
+                        <h3 class="text-3xl font-black mb-10 italic tracking-tighter text-cyan-400 uppercase">New Prescription</h3>
+                        <div class="space-y-6">
+                            <input id="med-name" type="text" placeholder="Identify Medicine (e.g. Antibiotics)" class="w-full bg-slate-900 border border-slate-800 p-6 rounded-2xl outline-none focus:border-cyan-500 text-white font-bold text-xl">
+                            <div class="flex gap-6">
+                                <input id="med-time" type="time" class="w-1/2 bg-slate-900 border border-slate-800 p-6 rounded-2xl outline-none text-cyan-400 font-mono text-3xl font-bold">
+                                <input id="med-duration" type="number" placeholder="Days (e.g. 7)" class="w-1/2 bg-slate-900 border border-slate-800 p-6 rounded-2xl outline-none text-white font-bold text-xl">
+                            </div>
+                            <button onclick="addMed()" class="w-full bg-gradient-to-r from-cyan-600 to-blue-600 py-6 rounded-2xl font-black text-xl hover:shadow-lg transition-all uppercase tracking-widest">DEPLOY COURSE</button>
+                        </div>
+                    </div>
+                    <div class="glass p-12 rounded-[4rem]">
+                        <h3 class="text-3xl font-black mb-10 italic tracking-tighter text-pink-500 uppercase">Current Schedules</h3>
+                        <div id="reminder-grid" class="space-y-6 history-scroll"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <audio id="alarm-audio" loop preload="auto">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        let reminders = [];
+        let historyLogs = [];
+        let activeAlarmMed = null;
+        const alarmAudio = document.getElementById('alarm-audio');
+        const alarmOverlay = document.getElementById('alarm-overlay');
+
+        // 1. DYNAMIC FLOATING PARTICLE ENGINE
+        function createParticles() {
+            const container = document.getElementById('particle-container');
+            const icons = [
+                { icon: 'fa-dna', color: '#00d2ff' },
+                { icon: 'fa-plus-circle', color: '#10b981' },
+                { icon: 'fa-pills', color: '#ff007f' },
+                { icon: 'fa-microscope', color: '#818cf8' },
+                { icon: 'fa-heartbeat', color: '#fbbf24' }
+            ];
+            
+            for (let i = 0; i < 30; i++) {
+                const item = icons[Math.floor(Math.random()*icons.length)];
+                const p = document.createElement('i');
+                p.className = `fas ${item.icon} med-particle`;
+                p.style.color = item.color;
+                p.style.left = `${Math.random()*100}%`;
+                p.style.fontSize = `${Math.random()*2 + 0.5}rem`;
+                p.style.animationDuration = `${Math.random()*12 + 10}s`;
+                p.style.animationDelay = `${Math.random()*-20}s`;
+                container.appendChild(p);
+            }
+        }
+        window.addEventListener('load', createParticles);
+
+        // 2. LOGIC: LOGIN & NAV
+        function handleLogin() {
+            const name = document.getElementById('login-name').value;
+            if(!name) return alert("System requires patient identity.");
+            document.getElementById('welcome-name').innerText = name.split(' ')[0];
+            document.getElementById('p-name').innerText = name;
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            initChart();
+        }
+
+        function showSection(id) {
+            document.getElementById('dashboard-section').classList.add('hidden');
+            document.getElementById('reminders-section').classList.add('hidden');
+            document.getElementById(id + '-section').classList.remove('hidden');
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.className = "nav-btn w-full flex items-center gap-4 p-5 rounded-[2rem] text-slate-500 hover:bg-slate-900 transition-all";
+            });
+            document.getElementById('nav-' + id).className = "nav-btn w-full flex items-center gap-4 p-5 rounded-[2rem] bg-cyan-600/20 text-cyan-400 border border-cyan-500/20 shadow-xl";
+        }
+
+        // 3. LOGIC: MEDICATION & COURSES
+        function addMed() {
+            const name = document.getElementById('med-name').value;
+            const time = document.getElementById('med-time').value;
+            const duration = parseInt(document.getElementById('med-duration').value);
+            
+            if(name && time && duration) {
+                reminders.push({ 
+                    name, 
+                    time, 
+                    duration, 
+                    daysPassed: 0, 
+                    status: 'active' 
+                });
+                document.getElementById('med-name').value = '';
+                document.getElementById('med-duration').value = '';
+                renderReminders();
+                updateSummary();
+            }
+        }
+
+        function renderReminders() {
+            const grid = document.getElementById('reminder-grid');
+            document.getElementById('dash-count').innerText = reminders.length;
+            grid.innerHTML = reminders.map((r, i) => {
+                const progress = Math.min((r.daysPassed / r.duration) * 100, 100);
+                return `
+                <div class="glass p-6 rounded-3xl border-slate-800 hover:border-cyan-500/30 transition-all">
+                    <div class="flex justify-between items-center mb-4">
+                        <div>
+                            <h4 class="text-2xl font-black tracking-tighter">${r.name}</h4>
+                            <p class="text-cyan-400 font-mono text-sm uppercase tracking-widest">${r.time} • ${r.duration - r.daysPassed} Days Remaining</p>
+                        </div>
+                        <button onclick="reminders.splice(${i},1); renderReminders(); updateSummary();" class="text-slate-600 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                    </div>
+                    <div class="w-full bg-slate-900 h-3 rounded-full overflow-hidden border border-slate-800">
+                        <div class="bg-gradient-to-r from-cyan-500 to-blue-500 h-full transition-all duration-1000" style="width: ${progress}%"></div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // 4. LOGIC: HISTORY & COMPLIANCE
+        function recordAction(action) {
+            const now = new Date();
+            const logEntry = {
+                name: activeAlarmMed.name,
+                time: now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                status: action
+            };
+            historyLogs.unshift(logEntry);
+            
+            // Increment progress for this specific course
+            activeAlarmMed.daysPassed++;
+            
+            // Check if course is finished
+            if(activeAlarmMed.daysPassed >= activeAlarmMed.duration) {
+                historyLogs.unshift({
+                    name: activeAlarmMed.name,
+                    time: "Prescription Completed",
+                    status: 'Taken'
+                });
+                reminders = reminders.filter(r => r !== activeAlarmMed);
+            }
+
+            updateHistoryUI();
+            renderReminders();
+            updateSummary();
+            stopAlarm();
+        }
+
+        function updateHistoryUI() {
+            const container = document.getElementById('recent-logs');
+            container.innerHTML = historyLogs.map(log => `
+                <div class="flex justify-between items-center bg-slate-900/80 p-4 rounded-2xl border-l-4 ${log.status === 'Taken' ? 'border-emerald-500' : 'border-red-500'}">
+                    <div>
+                        <p class="font-bold text-white text-sm uppercase">${log.name}</p>
+                        <p class="text-slate-500 text-[10px] font-mono">${log.time}</p>
+                    </div>
+                    <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase ${log.status === 'Taken' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}">${log.status}</span>
+                </div>`).join('');
+            
+            const taken = historyLogs.filter(l => l.status === 'Taken').length;
+            const rate = historyLogs.length > 0 ? Math.round((taken / historyLogs.length) * 100) : 100;
+            document.getElementById('compliance-rate').innerHTML = `${rate}<span class="text-cyan-500 text-3xl">%</span>`;
+        }
+
+        function updateSummary() {
+            if(reminders.length > 0) {
+                const maxDays = Math.max(...reminders.map(r => r.duration - r.daysPassed));
+                document.getElementById('days-left-summary').innerText = `${maxDays} DAYS`;
+            } else {
+                document.getElementById('days-left-summary').innerText = "--";
+            }
+        }
+
+        // 5. THE CORE CLOCK ENGINE
+        setInterval(() => {
+            const now = new Date();
+            const timeKey = now.toTimeString().slice(0,5);
+            document.getElementById('clock').innerText = now.toLocaleTimeString();
+
+            reminders.forEach(r => {
+                if(r.time === timeKey && r.status === 'active') {
+                    activeAlarmMed = r;
+                    document.getElementById('alarm-day-display').innerText = `PRESCRIPTION PROGRESS: DAY ${r.daysPassed + 1} OF ${r.duration}`;
+                    triggerAlarm(r);
+                }
+            });
+        }, 1000);
+
+        function triggerAlarm(med) {
+            document.getElementById('alarm-med-display').innerText = med.name;
+            alarmOverlay.classList.remove('hidden');
+            alarmAudio.play();
+            med.status = 'triggered'; 
+        }
+
+        function stopAlarm() {
+            alarmAudio.pause(); alarmAudio.currentTime = 0;
+            alarmOverlay.classList.add('hidden');
+            // Re-enable med status after 60s so it doesn't loop trigger same minute
+            setTimeout(() => { if(activeAlarmMed) activeAlarmMed.status = 'active'; }, 60000);
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+                    datasets: [{
+                        label: 'ADHERENCE',
+                        data: [100, 95, 100, 100, 92, 100, 100],
+                        borderColor: '#00d2ff',
+                        borderWidth: 5,
+                        tension: 0.4,
+                        fill: true,
+                        backgroundColor: 'rgba(0, 210, 255, 0.05)'
+                    }]
+                },
+                options: { 
+                    plugins: { legend: { display: false } }, 
+                    scales: { 
+                        y: { display: false }, 
+                        x: { grid: { display: false }, ticks: { color: '#475569', font: { weight: 'bold' } } } 
+                    } 
+                }
+            });
+        }
+const API_URL = "http://localhost:5000";
+
+// ✅ FETCH DATA FROM MONGODB WHEN APP STARTS
+async function fetchMeds() {
+    try {
+        const res = await fetch(`${API_URL}/get-meds`);
+        reminders = await res.json();
+        renderReminders();
+        updateSummary();
+    } catch (err) {
+        console.error("Fetch error:", err);
+    }
+}
+
+
+// ✅ ADD MEDICINE (NOW CONNECTED TO BACKEND)
+async function addMed() {
+    const name = document.getElementById('med-name').value;
+    const time = document.getElementById('med-time').value;
+    const duration = parseInt(document.getElementById('med-duration').value);
+
+    if (!name || !time || !duration) {
+        return alert("Fill all fields");
+    }
+
+    try {
+        const res = await fetch(`${API_URL}/add-med`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, time, duration })
+        });
+
+        const data = await res.json();
+        reminders.push(data);
+
+        renderReminders();
+        updateSummary();
+
+        document.getElementById('med-name').value = '';
+        document.getElementById('med-duration').value = '';
+
+    } catch (err) {
+        console.error("Add error:", err);
+    }
+}
+
+
+// ✅ DELETE MEDICINE (CONNECTED)
+async function deleteMed(id) {
+    try {
+        await fetch(`${API_URL}/delete-med/${id}`, {
+            method: "DELETE"
+        });
+
+        reminders = reminders.filter(r => r._id !== id);
+        renderReminders();
+        updateSummary();
+
+    } catch (err) {
+        console.error("Delete error:", err);
+    }
+}
+
+
+// ✅ RENDER WITH _id (IMPORTANT CHANGE)
+function renderReminders() {
+    const grid = document.getElementById('reminder-grid');
+    document.getElementById('dash-count').innerText = reminders.length;
+
+    grid.innerHTML = reminders.map((r) => {
+        const progress = Math.min((r.daysPassed / r.duration) * 100, 100);
+
+        return `
+        <div class="glass p-6 rounded-3xl border-slate-800">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h4 class="text-2xl font-black">${r.name}</h4>
+                    <p class="text-cyan-400 text-sm">${r.time} • ${r.duration - r.daysPassed} Days Left</p>
+                </div>
+                <button onclick="deleteMed('${r._id}')" class="text-red-500">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+
+            <div class="w-full bg-slate-900 h-3 rounded-full">
+                <div class="bg-cyan-500 h-full" style="width:${progress}%"></div>
+            </div>
+        </div>
+        `;
+    }).join('');
+}
+
+
+// ✅ UPDATE PROGRESS IN DB ALSO
+async function recordAction(action) {
+    const now = new Date();
+
+    const logEntry = {
+        name: activeAlarmMed.name,
+        time: now.toLocaleTimeString(),
+        status: action
+    };
+
+    historyLogs.unshift(logEntry);
+
+    activeAlarmMed.daysPassed++;
+
+    try {
+        await fetch(`${API_URL}/update-med/${activeAlarmMed._id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ daysPassed: activeAlarmMed.daysPassed })
+        });
+    } catch (err) {
+        console.error("Update error:", err);
+    }
+
+    updateHistoryUI();
+    renderReminders();
+    updateSummary();
+    stopAlarm();
+}
+
+
+// ✅ LOGIN → LOAD DATA FROM DB
+function handleLogin() {
+    const name = document.getElementById('login-name').value;
+
+    if (!name) return alert("Enter name");
+
+    document.getElementById('welcome-name').innerText = name;
+    document.getElementById('p-name').innerText = name;
+
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('main-app').classList.remove('hidden');
+
+    fetchMeds();   // 🔥 IMPORTANT
+    initChart();
+}
+    </script>
+</body>
+</html>
